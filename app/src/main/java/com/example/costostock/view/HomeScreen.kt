@@ -1,83 +1,52 @@
 package com.example.costostock.view
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.costostock.ProductOffer
+import com.example.costostock.R
 import kotlinx.coroutines.delay
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     products: List<ProductOffer>,
-    onProductSelected: (ProductOffer) -> Unit,
-    onAddProduct: (ProductOffer) -> Unit,
-    onDeleteProduct: (ProductOffer) -> Unit
+    onAddToCart: (ProductOffer) -> Unit
 ) {
-    var selectedFilter by remember { mutableStateOf("Todos") }
-    var showAddDialog by remember { mutableStateOf(false) }
+    val onSaleProducts = remember(products) {
+        products.filter { it.offerPrice < it.originalPrice }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Costo Stock",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Excedentes & Huella CO₂ evitada",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                actions = {
-                    AssistChip(
-                        onClick = { },
-                        label = { Text("GPS Activo", fontSize = 11.sp) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        modifier = Modifier.padding(end = 8.dp)
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_costostock),
+                        contentDescription = "Logo Costo Stock",
+                        modifier = Modifier
+                            .height(34.dp)
+                            .fillMaxWidth(0.65f)
                     )
                 }
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Agregar Producto") },
-                text = { Text("Nuevo Excedente") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         }
     ) { paddingValues ->
@@ -87,65 +56,28 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // Tarjeta Ley REP
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Eco,
-                        contentDescription = "Impacto Ecológico",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Economía Circular Ley REP",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "Cada lote reintroducido reduce el impacto de CO₂ en el medioambiente.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
 
-            // Chips de filtrado
-            val availableCategories = listOf("Todos") + products.map { it.category }.distinct()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(top = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                availableCategories.take(4).forEach { filter ->
-                    FilterChip(
-                        selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
-                        label = { Text(filter) }
-                    )
-                }
+                Icon(
+                    Icons.Default.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Ofertas Destacadas (${onSaleProducts.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            val filteredOffers = if (selectedFilter == "Todos") {
-                products
-            } else {
-                products.filter { it.category == selectedFilter }
-            }
-
-            if (filteredOffers.isEmpty()) {
+            if (onSaleProducts.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -153,44 +85,32 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No hay productos disponibles.",
+                        text = "No hay ofertas especiales activas en este momento.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
                 ) {
-                    items(filteredOffers, key = { it.id }) { offer ->
-                        OfferCard(
+                    items(onSaleProducts, key = { it.id }) { offer ->
+                        HomeOfferCard(
                             offer = offer,
-                            onClick = { onProductSelected(offer) },
-                            onDelete = { onDeleteProduct(offer) }
+                            onAddToCart = { onAddToCart(offer) }
                         )
                     }
                 }
             }
         }
     }
-
-    if (showAddDialog) {
-        AddProductDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { newProduct ->
-                onAddProduct(newProduct)
-                showAddDialog = false
-            }
-        )
-    }
 }
 
 @Composable
-fun OfferCard(
+fun HomeOfferCard(
     offer: ProductOffer,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onAddToCart: () -> Unit
 ) {
     var timeLeft by remember { mutableStateOf(offer.initialSecondsRemaining) }
 
@@ -204,59 +124,61 @@ fun OfferCard(
     val hours = timeLeft / 3600
     val minutes = (timeLeft % 3600) / 60
     val seconds = timeLeft % 60
+    val discountPct = ((1.0 - (offer.offerPrice.toDouble() / offer.originalPrice)) * 100).toInt()
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = offer.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Tipo: ${offer.category} • ${offer.storeName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Botón tipo icono/logo para eliminar
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Borrar Producto",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            if (offer.description.isNotBlank()) {
                 Text(
-                    text = offer.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = offer.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = "-$discountPct% OFF",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Precios y Stock
+            Text(
+                text = "${offer.storeName} • ${offer.address}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -268,20 +190,17 @@ fun OfferCard(
                 ) {
                     Text(
                         text = "$${offer.offerPrice}",
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (offer.originalPrice > offer.offerPrice) {
-                        Text(
-                            text = "$${offer.originalPrice}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textDecoration = TextDecoration.LineThrough,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
+                    Text(
+                        text = "$${offer.originalPrice}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textDecoration = TextDecoration.LineThrough,
+                        color = MaterialTheme.colorScheme.outline
+                    )
                 }
-
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer
@@ -290,13 +209,13 @@ fun OfferCard(
                         text = "${offer.stock} disp.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -305,7 +224,7 @@ fun OfferCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Timer,
+                        Icons.Default.Timer,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.error
@@ -314,14 +233,14 @@ fun OfferCard(
                     Text(
                         text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Eco,
+                        Icons.Default.Eco,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = Color(0xFF2E7D32)
@@ -330,127 +249,34 @@ fun OfferCard(
                     Text(
                         text = "-${offer.co2SavedKg} kg CO₂",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF2E7D32)
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+
+            Button(
+                onClick = onAddToCart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Añadir al Carrito",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
             }
         }
     }
-}
-
-@Composable
-fun AddProductDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (ProductOffer) -> Unit
-) {
-    var tipo by remember { mutableStateOf("") }
-    var nombre by remember { mutableStateOf("") }
-    var descripcion by remember { mutableStateOf("") }
-    var valor by remember { mutableStateOf("") }
-    var cantidad by remember { mutableStateOf("") } // Campo agregado
-    var errorText by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Plantilla: Nuevo Producto", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = tipo,
-                    onValueChange = { tipo = it },
-                    label = { Text("Tipo / Categoría") },
-                    placeholder = { Text("Ej: Lácteos, Abarrotes") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = nombre,
-                    onValueChange = { nombre = it },
-                    label = { Text("Nombre del producto") },
-                    placeholder = { Text("Ej: Pack Yogur") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = descripcion,
-                    onValueChange = { descripcion = it },
-                    label = { Text("Descripción") },
-                    placeholder = { Text("Ej: Próximo a vencer") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = valor,
-                        onValueChange = { if (it.all { c -> c.isDigit() }) valor = it },
-                        label = { Text("Valor ($)") },
-                        placeholder = { Text("Ej: 1990") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = cantidad,
-                        onValueChange = { if (it.all { c -> c.isDigit() }) cantidad = it },
-                        label = { Text("Cantidad") },
-                        placeholder = { Text("Ej: 10") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                if (errorText.isNotEmpty()) {
-                    Text(
-                        text = errorText,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (tipo.isBlank() || nombre.isBlank() || descripcion.isBlank() || valor.isBlank() || cantidad.isBlank()) {
-                        errorText = "Por favor completa todos los campos de la plantilla."
-                    } else {
-                        val parsedPrice = valor.toIntOrNull() ?: 0
-                        val parsedStock = cantidad.toIntOrNull() ?: 1
-                        val estimatedOriginalPrice = (parsedPrice * 1.5).toInt()
-
-                        val newOffer = ProductOffer(
-                            id = "CS-${UUID.randomUUID().toString().take(5).uppercase()}",
-                            title = nombre.trim(),
-                            description = descripcion.trim(),
-                            category = tipo.trim(),
-                            storeName = "Sucursal Costo Stock Local",
-                            address = "Av. Principal 101",
-                            distanceKm = 1.0,
-                            originalPrice = estimatedOriginalPrice,
-                            offerPrice = parsedPrice,
-                            stock = parsedStock, // Se guarda la cantidad ingresada
-                            initialSecondsRemaining = 3600L,
-                            co2SavedKg = 1.20
-                        )
-                        onConfirm(newOffer)
-                    }
-                }
-            ) {
-                Text("Guardar Producto")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
 }
