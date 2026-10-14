@@ -14,13 +14,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.costostock.ProductOffer
 import com.example.costostock.R
 import kotlinx.coroutines.delay
@@ -56,7 +59,6 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -137,6 +139,19 @@ fun HomeOfferCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+
+            if (offer.imageUri.isNotBlank()) {
+                AsyncImage(
+                    model = offer.imageUri,
+                    contentDescription = offer.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -256,7 +271,6 @@ fun HomeOfferCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
 
             Button(
                 onClick = onAddToCart,
