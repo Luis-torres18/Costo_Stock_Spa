@@ -37,6 +37,7 @@ import com.example.costostock.ProductOffer
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.UUID
+import kotlin.collections.map
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +45,8 @@ fun ProductsScreen(
     products: List<ProductOffer>,
     onAddToCart: (ProductOffer) -> Unit,
     onAddProduct: (ProductOffer) -> Unit,
-    onDeleteProduct: (ProductOffer) -> Unit
+    onDeleteProduct: (ProductOffer) -> Unit,
+    role: String
 ) {
     var selectedFilter by remember { mutableStateOf("Todos") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -56,13 +58,15 @@ fun ProductsScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Agregar") },
-                text = { Text("Nuevo Producto") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            if (role == "ADMINISTRADOR" || role == "VENDEDOR") {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = "Agregar") },
+                    text = { Text("Nuevo Producto") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -106,7 +110,8 @@ fun ProductsScreen(
                         CatalogCard(
                             offer = offer,
                             onAddToCart = { onAddToCart(offer) },
-                            onDelete = { onDeleteProduct(offer) }
+                            onDelete = { onDeleteProduct(offer) },
+                            role = role
                         )
                     }
                 }
@@ -129,7 +134,8 @@ fun ProductsScreen(
 fun CatalogCard(
     offer: ProductOffer,
     onAddToCart: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    role: String
 ) {
     var timeLeft by remember { mutableStateOf(offer.initialSecondsRemaining) }
 
@@ -150,7 +156,6 @@ fun CatalogCard(
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Mostrar imagen si existe
             if (offer.imageUri.isNotBlank()) {
                 AsyncImage(
                     model = offer.imageUri,
@@ -176,20 +181,22 @@ fun CatalogCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tipo: ${offer.category} • ${offer.storeName}",
+                        text = "Tipo: ${offer.category}\n${offer.storeName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Borrar",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                if (role == "ADMINISTRADOR" || role == "VENDEDOR") {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Borrar",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 
@@ -283,7 +290,6 @@ fun CatalogCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
             Button(
                 onClick = onAddToCart,
                 modifier = Modifier.fillMaxWidth(),

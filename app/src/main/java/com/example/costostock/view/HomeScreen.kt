@@ -32,7 +32,11 @@ import kotlinx.coroutines.delay
 @Composable
 fun HomeScreen(
     products: List<ProductOffer>,
-    onAddToCart: (ProductOffer) -> Unit
+    onAddToCart: (ProductOffer) -> Unit,
+    onNavigateToCart: () -> Unit,
+    onNavigateToProducts: () -> Unit,
+    role: String,
+    onLogout: () -> Unit
 ) {
     val onSaleProducts = remember(products) {
         products.filter { it.offerPrice < it.originalPrice }
@@ -59,10 +63,50 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
+            Text(
+                text = "Inicio",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Text(
+                text = "Sesión iniciada como: $role",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = { onNavigateToProducts() },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                if (role == "CLIENTE") {
+                    Text("Ver Catálogo de Productos")
+                } else {
+                    Text("Gestión de Productos (CRUD)")
+                }
+            }
+
+            Button(
+                onClick = { onNavigateToCart() },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Text("Ir a la Tienda / Carrito")
+            }
+
+            OutlinedButton(
+                onClick = { onLogout() },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Text("Cerrar Sesión", color = MaterialTheme.colorScheme.error)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
+                    .padding(top = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -183,9 +227,8 @@ fun HomeOfferCard(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
-
             Text(
-                text = "${offer.storeName} • ${offer.address}",
+                text = "${offer.storeName} - ${offer.address}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
