@@ -25,7 +25,7 @@ fun LoginScreen(
     onLoginSuccess: (String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
-    var username by remember { mutableStateOf("") }
+    var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -48,12 +48,12 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
-            value = username,
+            value = correo,
             onValueChange = {
-                username = it
+                correo = it
                 errorMessage = ""
             },
-            label = { Text("Usuario") },
+            label = { Text("Correo") },
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Email, contentDescription = "Icono de usuario")
             },
@@ -114,8 +114,8 @@ fun LoginScreen(
             onClick = {
                 focusManager.clearFocus()
 
-                if (username.isNotEmpty() && password.isNotEmpty()) {
-                    val loggedUser = UserRepository.validateLogin(username, password)
+                if (correo.isNotEmpty() && password.isNotEmpty()) {
+                    val loggedUser = UserRepository.validateLogin(correo, password)
 
                     if (loggedUser != null) {
                         onLoginSuccess(loggedUser.role)

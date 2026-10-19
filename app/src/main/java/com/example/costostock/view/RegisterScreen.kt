@@ -29,6 +29,8 @@ fun RegisterScreen(
     onNavigateToLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
+    var correo by remember { mutableStateOf("") }
+    var numero by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -40,7 +42,7 @@ fun RegisterScreen(
     val attemptRegistration = {
         if (username.isNotEmpty() && password.isNotEmpty() && password == confirmPassword) {
             val isRegistered = UserRepository.registerNewUser(
-                username = username,
+                correo = correo,
                 password = password,
                 role = selectedRole
             )
@@ -49,11 +51,11 @@ fun RegisterScreen(
                 focusManager.clearFocus()
                 onRegisterSuccess(selectedRole)
             } else {
-                errorMessage = "El nombre de usuario ya está en uso"
+                errorMessage = "El correo electronico ya esta en uso"
             }
 
         } else if (password != confirmPassword) {
-            errorMessage = "Las contraseñas no coinciden"
+            errorMessage = "Las contraseña no coinciden"
         } else {
             errorMessage = "Por favor completa todos los campos"
         }
@@ -111,9 +113,43 @@ fun RegisterScreen(
                 username = it
                 errorMessage = null
             },
-            label = { Text("Usuario o Correo") },
+            label = { Text("Nombre y Apellido") },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next
+            ),
+            isError = errorMessage != null,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = correo,
+            onValueChange = {
+                correo = it
+                errorMessage = null
+            },
+            label = { Text("Correo Electronico") },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            isError = errorMessage != null,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = numero,
+            onValueChange = {
+                numero = it
+                errorMessage = null
+            },
+            label = { Text("Numero de Telefono") },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Next
             ),
             isError = errorMessage != null,
@@ -183,7 +219,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         TextButton(onClick = { onNavigateToLogin() }) {
-            Text("¿Ya tienes cuenta? Inicia sesión aquí")
+            Text("¿Ya tienes cuenta? Inicia Sesion Aqui")
         }
     }
 }
