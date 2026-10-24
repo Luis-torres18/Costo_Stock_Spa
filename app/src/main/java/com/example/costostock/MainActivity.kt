@@ -22,6 +22,8 @@ import com.example.costostock.view.HomeScreen
 import com.example.costostock.view.LoginScreen
 import com.example.costostock.view.ProductsScreen
 import com.example.costostock.view.RegisterScreen
+import com.example.costostock.view.VoucherScreen
+import com.example.costostock.view.VouchersListScreen
 
 data class ProductOffer(
     val id: String,
@@ -36,7 +38,9 @@ data class ProductOffer(
     var stock: Int,
     val initialSecondsRemaining: Long,
     val co2SavedKg: Double,
-    val imageUri: String = ""
+    val imageUri: String = "",
+    // Horario en que el comprador puede retirar en el local (aparece en el voucher)
+    val pickupHours: String = "Consultar horario con el local"
 )
 
 data class CartItem(
@@ -45,11 +49,16 @@ data class CartItem(
 )
 
 data class PurchaseVoucher(
-    val voucherCode: String,
+    val voucherCode: String,          // código que se muestra y va en el QR
+    val transactionNumber: String,    // número de transacción
+    val accountId: String,            // correo de la cuenta dueña del voucher
     val items: List<CartItem>,
     val purchaseDate: String,
     val totalPaid: Int,
-    val totalCo2Saved: Double
+    val buyerName: String,
+    val buyerEmail: String,
+    val buyerPhone: String,
+    val paymentStatus: String = "PAGO SIMULADO"
 )
 
 class MainActivity : ComponentActivity() {
@@ -67,6 +76,9 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
     var currentUserRole by remember { mutableStateOf("CLIENTE") }
+    var currentUser by remember {
+        mutableStateOf<User?>(null)
+    }
 
     val productsList = remember {
         mutableStateListOf(
@@ -119,6 +131,7 @@ fun AppNavigation() {
     }
 
     val cartItems = remember { mutableStateListOf<CartItem>() }
+    val vouchers = remember { mutableStateListOf<PurchaseVoucher>() }
 
     fun addToCart(product: ProductOffer) {
         val existingIndex = cartItems.indexOfFirst { it.product.id == product.id }
@@ -200,9 +213,10 @@ fun AppNavigation() {
 
             composable("login") {
                 LoginScreen(
-                    onLoginSuccess = { role ->
-                        currentUserRole = role
-                        navController.navigate("home/$role") {
+                    onLoginSuccess = { user ->
+                        currentUser = user
+                        currentUserRole = user.role
+                        navController.navigate("home/${user.role}") {
                             popUpTo("login") { inclusive = true }
                         }
                     },
@@ -214,9 +228,10 @@ fun AppNavigation() {
 
             composable("register") {
                 RegisterScreen(
-                    onRegisterSuccess = { role ->
-                        currentUserRole = role
-                        navController.navigate("home/$role") {
+                    onRegisterSuccess = { user ->
+                        currentUser = user
+                        currentUserRole = user.role
+                        navController.navigate("home/${user.role}") {
                             popUpTo("login") { inclusive = true }
                         }
                     },
@@ -240,6 +255,8 @@ fun AppNavigation() {
                     onNavigateToProducts = { navController.navigate("products/$userRole") },
                     onNavigateToCart = { navController.navigate("cart") },
                     onLogout = {
+                        currentUser = null
+                        cartItems.clear()
                         navController.navigate("login") {
                             popUpTo(0)
                         }
@@ -265,6 +282,7 @@ fun AppNavigation() {
             composable("cart") {
                 CartScreen(
                     cartItems = cartItems,
+                    buyer = currentUser,
                     onIncreaseQuantity = { item ->
                         val index = cartItems.indexOf(item)
                         if (index >= 0 && item.quantity < item.product.stock) {
@@ -287,7 +305,34 @@ fun AppNavigation() {
                         navController.navigate("products/$currentUserRole") {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onVoucherIssued = { voucher ->
+                        vouchers.add(0, voucher)
+                        cartItems.clear()
+                        navController.navigate("voucher/${voucher.voucherCode}") {
+                            popUpTo("cart") { inclusive = true }
+                        }
+                    },
+                    onOpenVouchers = { navController.navigate("vouchers") }
+                )
+            }
+
+            composable("voucher/{code}") { backStackEntry ->
+                val code = backStackEntry.arguments?.getString("code")
+                VoucherScreen(
+                    voucher = vouchers.find { it.voucherCode == code },
+                    onClose = { navController.popBackStack() }
+                )
+            }
+
+            composable("vouchers") {
+                val accountId = currentUser?.correo.orEmpty()
+                VouchersListScreen(
+                    vouchers = vouchers.filter { it.accountId == accountId },
+                    onOpen = { voucher ->
+                        navController.navigate("voucher/${voucher.voucherCode}")
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

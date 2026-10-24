@@ -19,10 +19,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.costostock.User
 import com.example.costostock.UserRepository
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit,
+    onLoginSuccess: (User) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
     var correo by remember { mutableStateOf("") }
@@ -118,7 +119,7 @@ fun LoginScreen(
                     val loggedUser = UserRepository.validateLogin(correo, password)
 
                     if (loggedUser != null) {
-                        onLoginSuccess(loggedUser.role)
+                        onLoginSuccess(loggedUser)
                     } else {
                         errorMessage = "Usuario o contraseña incorrectos"
                     }

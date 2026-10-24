@@ -21,11 +21,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.costostock.User
 import com.example.costostock.UserRepository
 
 @Composable
 fun RegisterScreen(
-    onRegisterSuccess: (String) -> Unit,
+    onRegisterSuccess: (User) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
@@ -39,25 +40,36 @@ fun RegisterScreen(
     var selectedRole by remember { mutableStateOf(roles[0]) }
     val focusManager = LocalFocusManager.current
 
-    val attemptRegistration = {
-        if (username.isNotEmpty() && password.isNotEmpty() && password == confirmPassword) {
-            val isRegistered = UserRepository.registerNewUser(
-                correo = correo,
-                password = password,
-                role = selectedRole
-            )
+    fun attemptRegistration() {
+        when {
+            username.isBlank() || correo.isBlank() || numero.isBlank() || password.isEmpty() ->
+                errorMessage = "Por favor completa todos los campos"
 
-            if (isRegistered) {
-                focusManager.clearFocus()
-                onRegisterSuccess(selectedRole)
-            } else {
-                errorMessage = "El correo electronico ya esta en uso"
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(correo.trim()).matches() ->
+                errorMessage = "Ingresa un correo válido"
+
+            numero.count { it.isDigit() } < 8 ->
+                errorMessage = "Ingresa un teléfono válido"
+
+            password != confirmPassword ->
+                errorMessage = "Las contraseñas no coinciden"
+
+            else -> {
+                val newUser = UserRepository.registerNewUser(
+                    correo = correo,
+                    password = password,
+                    role = selectedRole,
+                    nombre = username,
+                    telefono = numero
+                )
+
+                if (newUser != null) {
+                    focusManager.clearFocus()
+                    onRegisterSuccess(newUser)
+                } else {
+                    errorMessage = "El correo electronico ya esta en uso"
+                }
             }
-
-        } else if (password != confirmPassword) {
-            errorMessage = "Las contraseña no coinciden"
-        } else {
-            errorMessage = "Por favor completa todos los campos"
         }
     }
 
@@ -149,7 +161,7 @@ fun RegisterScreen(
             },
             label = { Text("Numero de Telefono") },
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
+                keyboardType = KeyboardType.Phone,
                 imeAction = ImeAction.Next
             ),
             isError = errorMessage != null,
@@ -210,7 +222,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = attemptRegistration,
+            onClick = { attemptRegistration() },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Registrarse")
