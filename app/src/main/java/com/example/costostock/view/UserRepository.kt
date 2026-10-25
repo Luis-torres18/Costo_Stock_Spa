@@ -15,7 +15,6 @@ object UserRepository {
         User("admin", "1234", "ADMINISTRADOR")
     )
 
-    /** Devuelve el usuario creado, o null si el correo ya está registrado. */
     fun registerNewUser(
         correo: String,
         password: String,

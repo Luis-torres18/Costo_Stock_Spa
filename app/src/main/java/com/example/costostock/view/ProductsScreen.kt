@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,11 +46,17 @@ fun ProductsScreen(
     products: List<ProductOffer>,
     onAddToCart: (ProductOffer) -> Unit,
     onAddProduct: (ProductOffer) -> Unit,
+    onUpdateStock: (ProductOffer, Int) -> Unit,
     onDeleteProduct: (ProductOffer) -> Unit,
     role: String
 ) {
     var selectedFilter by remember { mutableStateOf("Todos") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var stockTarget by remember { mutableStateOf<ProductOffer?>(null) }
+
+    val now by rememberNowMillis()
+    val isSeller = role == "ADMINISTRADOR" || role == "VENDEDOR"
+    val visibleProducts = if (isSeller) products else products.filter { it.isVisibleToBuyer(now) }
 
     Scaffold(
         topBar = {
@@ -75,7 +82,7 @@ fun ProductsScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            val availableCategories = listOf("Todos") + products.map { it.category }.distinct()
+            val availableCategories = listOf("Todos") + visibleProducts.map { it.category }.distinct()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -92,9 +99,9 @@ fun ProductsScreen(
             }
 
             val filteredList = if (selectedFilter == "Todos") {
-                products
+                visibleProducts
             } else {
-                products.filter { it.category == selectedFilter }
+                visibleProducts.filter { it.category == selectedFilter }
             }
 
             if (filteredList.isEmpty()) {
@@ -109,7 +116,9 @@ fun ProductsScreen(
                     items(filteredList, key = { it.id }) { offer ->
                         CatalogCard(
                             offer = offer,
+                            now = now,
                             onAddToCart = { onAddToCart(offer) },
+                            onUpdateStock = { stockTarget = offer },
                             onDelete = { onDeleteProduct(offer) },
                             role = role
                         )
@@ -117,6 +126,17 @@ fun ProductsScreen(
                 }
             }
         }
+    }
+
+    stockTarget?.let { target ->
+        UpdateStockDialog(
+            product = target,
+            onDismiss = { stockTarget = null },
+            onConfirm = { newStock ->
+                onUpdateStock(target, newStock)
+                stockTarget = null
+            }
+        )
     }
 
     if (showAddDialog) {
@@ -133,22 +153,18 @@ fun ProductsScreen(
 @Composable
 fun CatalogCard(
     offer: ProductOffer,
+    now: Long,
     onAddToCart: () -> Unit,
+    onUpdateStock: () -> Unit,
     onDelete: () -> Unit,
     role: String
 ) {
-    var timeLeft by remember { mutableStateOf(offer.initialSecondsRemaining) }
-
-    LaunchedEffect(key1 = offer.id) {
-        while (timeLeft > 0) {
-            delay(1000L)
-            timeLeft--
-        }
+    val offerActive = offer.isOfferActive(now)
+    val timeText = if (offerActive) {
+        formatRemaining(offer.offerEndsAtMillis - now)
+    } else {
+        "Oferta finalizada"
     }
-
-    val hours = timeLeft / 3600
-    val minutes = (timeLeft % 3600) / 60
-    val seconds = timeLeft % 60
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -222,12 +238,12 @@ fun CatalogCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "$${offer.offerPrice}",
+                        text = "$${offer.priceAt(now)}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (offer.originalPrice > offer.offerPrice) {
+                    if (offerActive) {
                         Text(
                             text = "$${offer.originalPrice}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -241,7 +257,7 @@ fun CatalogCard(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = "${offer.stock} disp.",
+                        text = if (offer.stock > 0) "${offer.stock} disp." else "Agotado",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -266,7 +282,7 @@ fun CatalogCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
+                        text = timeText,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.error
@@ -292,12 +308,26 @@ fun CatalogCard(
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onAddToCart,
+                enabled = offer.stock > 0,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(Icons.Default.AddShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Añadir al Carrito")
+            }
+
+            if (role == "ADMINISTRADOR" || role == "VENDEDOR") {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onUpdateStock,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Actualizar stock")
+                }
             }
         }
     }
@@ -315,6 +345,8 @@ fun AddProductDialog(
     var descripcion by remember { mutableStateOf("") }
     var valor by remember { mutableStateOf("") }
     var cantidad by remember { mutableStateOf("") }
+    var horas by remember { mutableStateOf("1") }
+    var minutos by remember { mutableStateOf("0") }
     var errorText by remember { mutableStateOf("") }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -437,6 +469,32 @@ fun AddProductDialog(
                     )
                 }
 
+                Text(
+                    text = "Duración de la oferta",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = horas,
+                        onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) horas = it },
+                        label = { Text("Horas") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = minutos,
+                        onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) minutos = it },
+                        label = { Text("Minutos") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 if (errorText.isNotEmpty()) {
                     Text(
                         text = errorText,
@@ -449,8 +507,13 @@ fun AddProductDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val durationMinutes = (horas.toIntOrNull() ?: 0) * 60 + (minutos.toIntOrNull() ?: 0)
                     if (tipo.isBlank() || nombre.isBlank() || descripcion.isBlank() || valor.isBlank() || cantidad.isBlank()) {
                         errorText = "Por favor completa todos los campos de la plantilla."
+                    } else if (durationMinutes <= 0) {
+                        errorText = "La oferta debe durar al menos 1 minuto."
+                    } else if ((cantidad.toIntOrNull() ?: 0) < 1) {
+                        errorText = "La cantidad debe ser al menos 1."
                     } else {
                         val parsedPrice = valor.toIntOrNull() ?: 0
                         val parsedStock = cantidad.toIntOrNull() ?: 1
@@ -467,7 +530,7 @@ fun AddProductDialog(
                             originalPrice = estimatedOriginalPrice,
                             offerPrice = parsedPrice,
                             stock = parsedStock,
-                            initialSecondsRemaining = 3600L,
+                            offerEndsAtMillis = System.currentTimeMillis() + durationMinutes * 60_000L,
                             co2SavedKg = 1.20,
                             imageUri = selectedImageUri?.toString() ?: ""
                         )
@@ -482,6 +545,63 @@ fun AddProductDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
+        }
+    )
+}
+
+@Composable
+fun UpdateStockDialog(
+    product: ProductOffer,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    var value by remember(product.id) { mutableStateOf(product.stock.toString()) }
+    var errorMsg by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Actualizar stock", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(product.title, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = {
+                        if (it.length <= 6 && it.all { c -> c.isDigit() }) {
+                            value = it
+                            errorMsg = ""
+                        }
+                    },
+                    label = { Text("Unidades disponibles") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (errorMsg.isNotEmpty()) {
+                    Text(
+                        text = errorMsg,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val newStock = value.toIntOrNull()
+                    if (newStock == null) {
+                        errorMsg = "Ingresa un número válido."
+                    } else {
+                        onConfirm(newStock)
+                    }
+                }
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }

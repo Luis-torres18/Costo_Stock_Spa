@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.costostock.CartItem
 import com.example.costostock.PurchaseVoucher
+import com.example.costostock.VoucherItem
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import java.text.NumberFormat
@@ -37,18 +38,15 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-const val VOUCHER_TERMS =
-    "1. Este voucher acredita una compra para retiro presencial en el/los local(es) indicado(s). " +
-            "2. Para retirar, el comprador debe presentar este voucher (código QR o número de " +
-            "transacción) dentro del horario de retiro del local.\n" +
-            "3. Si el comprador no retira el producto, ello constituye negligencia total del " +
-            "comprador, quien asume la responsabilidad por no retirarlo.\n" +
-            "4. Costo Stock actúa como medio de contacto para la venta; la entrega del producto " +
-            "se realiza en el local del proveedor.\n"
-
+val VOUCHER_TERMS: String = listOf(
+    "1. Este voucher acredita una compra para retiro presencial en el/los local(es) indicado(s).",
+    "2. Para retirar, el comprador debe presentar este voucher (código QR o número de transacción) dentro del horario de retiro del local.",
+    "3. Si el comprador no retira el producto, ello constituye negligencia total del comprador, quien asume la responsabilidad por no retirarlo.",
+    "4. Costo Stock actúa como medio de contacto para la venta; la entrega del producto se realiza en el local del proveedor."
+).joinToString("\n")
 
 fun formatClp(amount: Int): String =
-    "\$" + NumberFormat.getInstance(Locale.forLanguageTag("es-CL")).format(amount)
+    "$" + NumberFormat.getInstance(Locale.forLanguageTag("es-CL")).format(amount)
 
 fun buildVoucher(
     accountId: String,
@@ -58,6 +56,7 @@ fun buildVoucher(
     buyerPhone: String
 ): PurchaseVoucher {
     val now = Date()
+    val nowMillis = now.time
     val dateText = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(now)
     val dayStamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(now)
 
@@ -71,9 +70,18 @@ fun buildVoucher(
         voucherCode = "CS-${token(10)}",
         transactionNumber = "TX-$dayStamp-${token(6)}",
         accountId = accountId,
-        items = items.map { it.copy() },
+        items = items.map {
+            VoucherItem(
+                title = it.product.title,
+                storeName = it.product.storeName,
+                address = it.product.address,
+                pickupHours = it.product.pickupHours,
+                quantity = it.quantity,
+                unitPrice = it.product.priceAt(nowMillis)
+            )
+        },
         purchaseDate = dateText,
-        totalPaid = items.sumOf { it.product.offerPrice * it.quantity },
+        totalPaid = items.sumOf { it.product.priceAt(nowMillis) * it.quantity },
         buyerName = buyerName,
         buyerEmail = buyerEmail,
         buyerPhone = buyerPhone
@@ -83,8 +91,8 @@ fun buildVoucher(
 private fun PurchaseVoucher.qrContent(): String =
     listOf("COSTOSTOCK", voucherCode, transactionNumber).joinToString("|")
 
-private fun PurchaseVoucher.itemsByStore(): List<Pair<String, List<CartItem>>> =
-    items.groupBy { it.product.storeName + "\n" + it.product.address }.toList()
+private fun PurchaseVoucher.itemsByStore(): List<Pair<String, List<VoucherItem>>> =
+    items.groupBy { it.storeName + "\n" + it.address }.toList()
 
 private fun PurchaseVoucher.toShareText(): String = buildString {
     appendLine("Voucher Costo Stock")
@@ -94,11 +102,11 @@ private fun PurchaseVoucher.toShareText(): String = buildString {
     appendLine("Total: ${formatClp(totalPaid)} ($paymentStatus)")
     appendLine()
     itemsByStore().forEach { (_, storeItems) ->
-        val product = storeItems.first().product
+        val product = storeItems.first()
         appendLine("Retiro en: ${product.storeName}")
         appendLine("Dirección: ${product.address}")
-        appendLine("Horario: ${storeItems.map { it.product.pickupHours }.distinct().joinToString(" / ")}")
-        storeItems.forEach { appendLine("  ${it.quantity}x ${it.product.title}") }
+        appendLine("Horario: ${storeItems.map { it.pickupHours }.distinct().joinToString(" / ")}")
+        storeItems.forEach { appendLine("  ${it.quantity}x ${it.title}") }
         appendLine()
     }
     appendLine("Comprador: $buyerName")
@@ -192,7 +200,6 @@ fun VoucherScreen(
                     )
                     Spacer(Modifier.height(16.dp))
 
-                    // Fondo blanco fijo: el QR debe leerse también en modo oscuro.
                     Box(
                         modifier = Modifier
                             .background(Color.White, RoundedCornerShape(12.dp))
@@ -215,7 +222,6 @@ fun VoucherScreen(
                 }
             }
 
-
             VoucherSection("Transacción") {
                 LabeledRow("N° de transacción", voucher.transactionNumber)
                 LabeledRow("Fecha", voucher.purchaseDate)
@@ -224,7 +230,7 @@ fun VoucherScreen(
             }
 
             voucher.itemsByStore().forEach { (_, storeItems) ->
-                val first = storeItems.first().product
+                val first = storeItems.first()
                 VoucherSection("Retiro en local") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -238,7 +244,7 @@ fun VoucherScreen(
                     LabeledRow("Dirección", first.address)
                     LabeledRow(
                         "Horario de retiro",
-                        storeItems.map { it.product.pickupHours }.distinct().joinToString(" / ")
+                        storeItems.map { it.pickupHours }.distinct().joinToString(" / ")
                     )
                     HorizontalDivider()
                     storeItems.forEach { item ->
@@ -247,13 +253,13 @@ fun VoucherScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "${item.quantity}x ${item.product.title}",
+                                "${item.quantity}x ${item.title}",
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                formatClp(item.product.offerPrice * item.quantity),
+                                formatClp(item.unitPrice * item.quantity),
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
@@ -393,7 +399,7 @@ fun VouchersListScreen(
                             )
                             Text(
                                 "${voucher.items.sumOf { it.quantity }} un. • " +
-                                        voucher.items.map { it.product.storeName }.distinct()
+                                        voucher.items.map { it.storeName }.distinct()
                                             .joinToString(", "),
                                 style = MaterialTheme.typography.bodySmall
                             )

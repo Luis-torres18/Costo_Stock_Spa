@@ -25,6 +25,8 @@ import com.example.costostock.view.RegisterScreen
 import com.example.costostock.view.VoucherScreen
 import com.example.costostock.view.VouchersListScreen
 
+const val HIDE_EXPIRED_OFFERS = false
+
 data class ProductOffer(
     val id: String,
     val title: String,
@@ -35,24 +37,42 @@ data class ProductOffer(
     val distanceKm: Double,
     val originalPrice: Int,
     val offerPrice: Int,
-    var stock: Int,
-    val initialSecondsRemaining: Long,
+    val stock: Int,
+    val offerEndsAtMillis: Long,
     val co2SavedKg: Double,
     val imageUri: String = "",
-    // Horario en que el comprador puede retirar en el local (aparece en el voucher)
     val pickupHours: String = "Consultar horario con el local"
-)
+) {
+
+    fun isOfferActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        offerPrice < originalPrice && nowMillis < offerEndsAtMillis
+    fun priceAt(nowMillis: Long = System.currentTimeMillis()): Int =
+        if (isOfferActive(nowMillis)) offerPrice else originalPrice
+
+    val currentPrice: Int get() = priceAt()
+
+    fun isVisibleToBuyer(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        stock > 0 && (!HIDE_EXPIRED_OFFERS || nowMillis < offerEndsAtMillis)
+}
 
 data class CartItem(
     val product: ProductOffer,
     var quantity: Int
 )
+data class VoucherItem(
+    val title: String,
+    val storeName: String,
+    val address: String,
+    val pickupHours: String,
+    val quantity: Int,
+    val unitPrice: Int
+)
 
 data class PurchaseVoucher(
-    val voucherCode: String,          // código que se muestra y va en el QR
-    val transactionNumber: String,    // número de transacción
-    val accountId: String,            // correo de la cuenta dueña del voucher
-    val items: List<CartItem>,
+    val voucherCode: String,
+    val transactionNumber: String,
+    val accountId: String,
+    val items: List<VoucherItem>,
     val purchaseDate: String,
     val totalPaid: Int,
     val buyerName: String,
@@ -93,7 +113,7 @@ fun AppNavigation() {
                 originalPrice = 4990,
                 offerPrice = 1990,
                 stock = 8,
-                initialSecondsRemaining = 3600L,
+                offerEndsAtMillis = System.currentTimeMillis() + 3_600_000L,
                 co2SavedKg = 1.45,
                 imageUri = "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80"
             ),
@@ -108,7 +128,7 @@ fun AppNavigation() {
                 originalPrice = 3290,
                 offerPrice = 1290,
                 stock = 4,
-                initialSecondsRemaining = 1800L,
+                offerEndsAtMillis = System.currentTimeMillis() + 1_800_000L,
                 co2SavedKg = 0.85,
                 imageUri = "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80"
             ),
@@ -123,7 +143,7 @@ fun AppNavigation() {
                 originalPrice = 5890,
                 offerPrice = 2790,
                 stock = 12,
-                initialSecondsRemaining = 7200L,
+                offerEndsAtMillis = System.currentTimeMillis() + 7_200_000L,
                 co2SavedKg = 2.30,
                 imageUri = "https://media.solotodo.com/media/products/2091794.jpg"
             )
@@ -133,16 +153,34 @@ fun AppNavigation() {
     val cartItems = remember { mutableStateListOf<CartItem>() }
     val vouchers = remember { mutableStateListOf<PurchaseVoucher>() }
 
+    fun changeStock(productId: String, delta: Int) {
+        val index = productsList.indexOfFirst { it.id == productId }
+        if (index >= 0) {
+            val current = productsList[index]
+            productsList[index] = current.copy(stock = (current.stock + delta).coerceAtLeast(0))
+        }
+    }
+
+    fun stockLeft(productId: String): Int =
+        productsList.firstOrNull { it.id == productId }?.stock ?: 0
+
     fun addToCart(product: ProductOffer) {
-        val existingIndex = cartItems.indexOfFirst { it.product.id == product.id }
+        val fresh = productsList.firstOrNull { it.id == product.id } ?: return
+        if (fresh.stock <= 0) return
+
+        val existingIndex = cartItems.indexOfFirst { it.product.id == fresh.id }
         if (existingIndex >= 0) {
             val currentItem = cartItems[existingIndex]
-            if (currentItem.quantity < product.stock) {
-                cartItems[existingIndex] = currentItem.copy(quantity = currentItem.quantity + 1)
-            }
+            cartItems[existingIndex] = currentItem.copy(quantity = currentItem.quantity + 1)
         } else {
-            cartItems.add(CartItem(product = product, quantity = 1))
+            cartItems.add(CartItem(product = fresh, quantity = 1))
         }
+        changeStock(fresh.id, -1)
+    }
+
+    fun releaseCart() {
+        cartItems.forEach { changeStock(it.product.id, it.quantity) }
+        cartItems.clear()
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -256,7 +294,7 @@ fun AppNavigation() {
                     onNavigateToCart = { navController.navigate("cart") },
                     onLogout = {
                         currentUser = null
-                        cartItems.clear()
+                        releaseCart()
                         navController.navigate("login") {
                             popUpTo(0)
                         }
@@ -272,6 +310,13 @@ fun AppNavigation() {
                     products = productsList,
                     onAddToCart = { product -> addToCart(product) },
                     onAddProduct = { newProduct -> productsList.add(0, newProduct) },
+                    onUpdateStock = { product, newStock ->
+                        val index = productsList.indexOfFirst { it.id == product.id }
+                        if (index >= 0) {
+                            productsList[index] = productsList[index]
+                                .copy(stock = newStock.coerceAtLeast(0))
+                        }
+                    },
                     onDeleteProduct = { productToDelete ->
                         productsList.remove(productToDelete)
                         cartItems.removeAll { it.product.id == productToDelete.id }
@@ -283,12 +328,8 @@ fun AppNavigation() {
                 CartScreen(
                     cartItems = cartItems,
                     buyer = currentUser,
-                    onIncreaseQuantity = { item ->
-                        val index = cartItems.indexOf(item)
-                        if (index >= 0 && item.quantity < item.product.stock) {
-                            cartItems[index] = item.copy(quantity = item.quantity + 1)
-                        }
-                    },
+                    stockLeft = { productId -> stockLeft(productId) },
+                    onIncreaseQuantity = { item -> addToCart(item.product) },
                     onDecreaseQuantity = { item ->
                         val index = cartItems.indexOf(item)
                         if (index >= 0) {
@@ -297,10 +338,15 @@ fun AppNavigation() {
                             } else {
                                 cartItems.removeAt(index)
                             }
+                            changeStock(item.product.id, 1)
                         }
                     },
-                    onRemoveItem = { item -> cartItems.remove(item) },
-                    onClearCart = { cartItems.clear() },
+                    onRemoveItem = { item ->
+                        if (cartItems.remove(item)) {
+                            changeStock(item.product.id, item.quantity)
+                        }
+                    },
+                    onClearCart = { releaseCart() },
                     onGoToProducts = {
                         navController.navigate("products/$currentUserRole") {
                             launchSingleTop = true

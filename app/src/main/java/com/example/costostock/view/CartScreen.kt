@@ -30,6 +30,7 @@ import java.util.Locale
 fun CartScreen(
     cartItems: List<CartItem>,
     buyer: User?,
+    stockLeft: (String) -> Int,
     onIncreaseQuantity: (CartItem) -> Unit,
     onDecreaseQuantity: (CartItem) -> Unit,
     onRemoveItem: (CartItem) -> Unit,
@@ -47,7 +48,7 @@ fun CartScreen(
     var checkoutError by remember { mutableStateOf<String?>(null) }
 
     val totalAmount = remember(cartItems.toList()) {
-        cartItems.sumOf { it.product.offerPrice * it.quantity }
+        cartItems.sumOf { it.product.currentPrice * it.quantity }
     }
 
     val totalCo2 = remember(cartItems.toList()) {
@@ -222,6 +223,7 @@ fun CartScreen(
                     ) { item ->
                         CartItemRow(
                             item = item,
+                            stockLeft = stockLeft(item.product.id),
                             onIncrease = { onIncreaseQuantity(item) },
                             onDecrease = { onDecreaseQuantity(item) },
                             onRemove = { onRemoveItem(item) }
@@ -324,6 +326,7 @@ fun CartScreen(
 @Composable
 fun CartItemRow(
     item: CartItem,
+    stockLeft: Int,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
     onRemove: () -> Unit
@@ -349,13 +352,13 @@ fun CartItemRow(
                 )
 
                 Text(
-                    text = "$${item.product.offerPrice} c/u • Máx disp: ${item.product.stock}",
+                    text = "$${item.product.currentPrice} c/u • Quedan: $stockLeft",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "Subtotal: $${item.product.offerPrice * item.quantity}",
+                    text = "Subtotal: $${item.product.currentPrice * item.quantity}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -386,7 +389,7 @@ fun CartItemRow(
 
                 FilledTonalIconButton(
                     onClick = onIncrease,
-                    enabled = item.quantity < item.product.stock,
+                    enabled = stockLeft > 0,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
