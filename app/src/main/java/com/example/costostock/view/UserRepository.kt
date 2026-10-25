@@ -4,7 +4,9 @@ package com.example.costostock
 data class User(
     val correo: String,
     val password: String,
-    val role: String
+    val role: String,
+    val nombre: String = "",
+    val telefono: String = ""
 )
 
 object UserRepository {
@@ -13,15 +15,25 @@ object UserRepository {
         User("admin", "1234", "ADMINISTRADOR")
     )
 
-    fun registerNewUser(correo: String, password: String, role: String): Boolean {
+    fun registerNewUser(
+        correo: String,
+        password: String,
+        role: String,
+        nombre: String,
+        telefono: String
+    ): User? {
         val userExists = usersList.any { it.correo.lowercase() == correo.lowercase() }
+        if (userExists) return null
 
-        if (userExists) {
-            return false
-        } else {
-            usersList.add(User(correo, password, role))
-            return true
-        }
+        val newUser = User(
+            correo = correo.trim(),
+            password = password,
+            role = role,
+            nombre = nombre.trim(),
+            telefono = telefono.trim()
+        )
+        usersList.add(newUser)
+        return newUser
     }
 
     fun validateLogin(correo: String, password: String): User? {

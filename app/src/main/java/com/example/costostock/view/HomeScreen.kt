@@ -38,9 +38,9 @@ fun HomeScreen(
     role: String,
     onLogout: () -> Unit
 ) {
-    val onSaleProducts = remember(products) {
-        products.filter { it.offerPrice < it.originalPrice }
-    }
+    val now by rememberNowMillis()
+    // Solo ofertas vigentes y con stock
+    val onSaleProducts = products.filter { it.stock > 0 && it.isOfferActive(now) }
 
     Scaffold(
         topBar = {
@@ -144,6 +144,7 @@ fun HomeScreen(
                     items(onSaleProducts, key = { it.id }) { offer ->
                         HomeOfferCard(
                             offer = offer,
+                            now = now,
                             onAddToCart = { onAddToCart(offer) }
                         )
                     }
@@ -156,20 +157,10 @@ fun HomeScreen(
 @Composable
 fun HomeOfferCard(
     offer: ProductOffer,
+    now: Long,
     onAddToCart: () -> Unit
 ) {
-    var timeLeft by remember { mutableStateOf(offer.initialSecondsRemaining) }
-
-    LaunchedEffect(key1 = offer.id) {
-        while (timeLeft > 0) {
-            delay(1000L)
-            timeLeft--
-        }
-    }
-
-    val hours = timeLeft / 3600
-    val minutes = (timeLeft % 3600) / 60
-    val seconds = timeLeft % 60
+    val timeText = formatRemaining(offer.offerEndsAtMillis - now)
     val discountPct = ((1.0 - (offer.offerPrice.toDouble() / offer.originalPrice)) * 100).toInt()
 
     Card(
@@ -289,7 +280,7 @@ fun HomeOfferCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
+                        text = timeText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.SemiBold
