@@ -24,6 +24,35 @@ import androidx.compose.ui.unit.dp
 import com.example.costostock.User
 import com.example.costostock.UserRepository
 
+const val NAME_MAX_LENGTH = 40
+
+/** Devuelve un mensaje de error, o null si el nombre es válido. */
+fun validateName(name: String): String? {
+    val clean = name.trim()
+    return when {
+        clean.length < 2 ->
+            "El nombre debe tener al menos 2 letras"
+        clean.length > NAME_MAX_LENGTH ->
+            "El nombre puede tener como máximo $NAME_MAX_LENGTH caracteres"
+        !Regex("""^\p{L}+( \p{L}+)*$""").matches(clean) ->
+            "El nombre solo puede contener letras y espacios"
+        else -> null
+    }
+}
+
+/** Devuelve un mensaje de error, o null si la contraseña es válida. */
+fun validatePassword(password: String): String? = when {
+    password.length < 8 ->
+        "La contraseña debe tener al menos 8 caracteres"
+    password.none { it.isLowerCase() } ->
+        "La contraseña debe incluir al menos una letra minúscula"
+    password.none { it.isUpperCase() } ->
+        "La contraseña debe incluir al menos una letra mayúscula"
+    password.none { !it.isLetterOrDigit() && !it.isWhitespace() } ->
+        "La contraseña debe incluir al menos un carácter especial (por ejemplo ! @ # -)"
+    else -> null
+}
+
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: (User) -> Unit,
@@ -45,11 +74,17 @@ fun RegisterScreen(
             username.isBlank() || correo.isBlank() || numero.isBlank() || password.isEmpty() ->
                 errorMessage = "Por favor completa todos los campos"
 
+            validateName(username) != null ->
+                errorMessage = validateName(username)
+
             !android.util.Patterns.EMAIL_ADDRESS.matcher(correo.trim()).matches() ->
                 errorMessage = "Ingresa un correo válido"
 
             numero.count { it.isDigit() } < 8 ->
                 errorMessage = "Ingresa un teléfono válido"
+
+            validatePassword(password) != null ->
+                errorMessage = validatePassword(password)
 
             password != confirmPassword ->
                 errorMessage = "Las contraseñas no coinciden"
@@ -122,7 +157,10 @@ fun RegisterScreen(
         OutlinedTextField(
             value = username,
             onValueChange = {
-                username = it
+                // Solo letras y espacios, con un máximo de caracteres
+                if (it.length <= NAME_MAX_LENGTH && it.all { c -> c.isLetter() || c == ' ' }) {
+                    username = it
+                }
                 errorMessage = null
             },
             label = { Text("Nombre y Apellido") },
@@ -177,6 +215,9 @@ fun RegisterScreen(
                 errorMessage = null
             },
             label = { Text("Contraseña") },
+            supportingText = {
+                Text("Mínimo 8 caracteres, con mayúscula, minúscula y un carácter especial")
+            },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
