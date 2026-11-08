@@ -15,9 +15,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,13 +46,13 @@ fun ProductsScreen(
     products: List<ProductOffer>,
     onAddToCart: (ProductOffer) -> Unit,
     onAddProduct: (ProductOffer) -> Unit,
-    onUpdateStock: (ProductOffer, Int) -> Unit,
+    onEditProduct: (ProductOffer) -> Unit,
     onDeleteProduct: (ProductOffer) -> Unit,
+    onOpenProduct: (ProductOffer) -> Unit,
     role: String
 ) {
     var selectedFilter by remember { mutableStateOf("Todos") }
     var showAddDialog by remember { mutableStateOf(false) }
-    var stockTarget by remember { mutableStateOf<ProductOffer?>(null) }
 
     val now by rememberNowMillis()
     val isSeller = role == "ADMINISTRADOR" || role == "VENDEDOR"
@@ -117,8 +117,9 @@ fun ProductsScreen(
                         CatalogCard(
                             offer = offer,
                             now = now,
+                            onClick = { onOpenProduct(offer) },
                             onAddToCart = { onAddToCart(offer) },
-                            onUpdateStock = { stockTarget = offer },
+                            onEdit = { onEditProduct(offer) },
                             onDelete = { onDeleteProduct(offer) },
                             role = role
                         )
@@ -126,17 +127,6 @@ fun ProductsScreen(
                 }
             }
         }
-    }
-
-    stockTarget?.let { target ->
-        UpdateStockDialog(
-            product = target,
-            onDismiss = { stockTarget = null },
-            onConfirm = { newStock ->
-                onUpdateStock(target, newStock)
-                stockTarget = null
-            }
-        )
     }
 
     if (showAddDialog) {
@@ -154,19 +144,21 @@ fun ProductsScreen(
 fun CatalogCard(
     offer: ProductOffer,
     now: Long,
+    onClick: () -> Unit,
     onAddToCart: () -> Unit,
-    onUpdateStock: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     role: String
 ) {
     val offerActive = offer.isOfferActive(now)
-    val timeText = if (offerActive) {
-        formatRemaining(offer.offerEndsAtMillis - now)
-    } else {
-        "Oferta finalizada"
+    val timeText = when {
+        offerActive -> formatRemaining(offer.offerEndsAtMillis - now)
+        offer.hasOffer -> "Oferta finalizada"
+        else -> "Sin oferta"
     }
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp)
@@ -320,13 +312,13 @@ fun CatalogCard(
             if (role == "ADMINISTRADOR" || role == "VENDEDOR") {
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = onUpdateStock,
+                    onClick = onEdit,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Actualizar stock")
+                    Text("Actualizar")
                 }
             }
         }
@@ -545,63 +537,6 @@ fun AddProductDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
-        }
-    )
-}
-
-@Composable
-fun UpdateStockDialog(
-    product: ProductOffer,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
-) {
-    var value by remember(product.id) { mutableStateOf(product.stock.toString()) }
-    var errorMsg by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Actualizar stock", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(product.title, fontWeight = FontWeight.SemiBold)
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = {
-                        if (it.length <= 6 && it.all { c -> c.isDigit() }) {
-                            value = it
-                            errorMsg = ""
-                        }
-                    },
-                    label = { Text("Unidades disponibles") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (errorMsg.isNotEmpty()) {
-                    Text(
-                        text = errorMsg,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val newStock = value.toIntOrNull()
-                    if (newStock == null) {
-                        errorMsg = "Ingresa un número válido."
-                    } else {
-                        onConfirm(newStock)
-                    }
-                }
-            ) {
-                Text("Guardar")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }

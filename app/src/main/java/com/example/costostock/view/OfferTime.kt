@@ -13,6 +13,10 @@ fun rememberNowMillis(): State<Long> = produceState(initialValue = System.curren
         value = System.currentTimeMillis()
     }
 }
+fun discountPercent(originalPrice: Int, offerPrice: Int): Int =
+    if (originalPrice <= 0 || offerPrice >= originalPrice) 0
+    else ((1.0 - offerPrice.toDouble() / originalPrice) * 100).toInt()
+
 fun formatRemaining(remainingMillis: Long): String {
     val total = (remainingMillis / 1000L).coerceAtLeast(0L)
     val hours = total / 3600

@@ -20,13 +20,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.costostock.AccountStatus
 import com.example.costostock.User
 import com.example.costostock.UserRepository
 
 const val NAME_MAX_LENGTH = 40
 
-/** Devuelve un mensaje de error, o null si el nombre es válido. */
 fun validateName(name: String): String? {
     val clean = name.trim()
     return when {
@@ -40,7 +41,6 @@ fun validateName(name: String): String? {
     }
 }
 
-/** Devuelve un mensaje de error, o null si la contraseña es válida. */
 fun validatePassword(password: String): String? = when {
     password.length < 8 ->
         "La contraseña debe tener al menos 8 caracteres"
@@ -67,6 +67,7 @@ fun RegisterScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     val roles = listOf("CLIENTE", "VENDEDOR", "ADMINISTRADOR")
     var selectedRole by remember { mutableStateOf(roles[0]) }
+    var pendingUser by remember { mutableStateOf<User?>(null) }
     val focusManager = LocalFocusManager.current
 
     fun attemptRegistration() {
@@ -89,6 +90,9 @@ fun RegisterScreen(
             password != confirmPassword ->
                 errorMessage = "Las contraseñas no coinciden"
 
+            UserRepository.findByEmail(correo)?.status == AccountStatus.PENDIENTE ->
+                errorMessage = "Ya hay una solicitud pendiente con este correo"
+
             else -> {
                 val newUser = UserRepository.registerNewUser(
                     correo = correo,
@@ -100,7 +104,12 @@ fun RegisterScreen(
 
                 if (newUser != null) {
                     focusManager.clearFocus()
-                    onRegisterSuccess(newUser)
+                    if (newUser.status == AccountStatus.PENDIENTE) {
+                        // Vendedor: no entra todavía, se muestra el aviso de solicitud enviada
+                        pendingUser = newUser
+                    } else {
+                        onRegisterSuccess(newUser)
+                    }
                 } else {
                     errorMessage = "El correo electronico ya esta en uso"
                 }
@@ -150,6 +159,16 @@ fun RegisterScreen(
                     )
                 }
             }
+        }
+
+        if (UserRepository.requiresApproval(selectedRole)) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Las cuentas de ${selectedRole.lowercase()} deben ser aprobadas por un administrador antes de poder usarse.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -274,5 +293,28 @@ fun RegisterScreen(
         TextButton(onClick = { onNavigateToLogin() }) {
             Text("¿Ya tienes cuenta? Inicia Sesion Aqui")
         }
+    }
+
+    pendingUser?.let { user ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Solicitud enviada") },
+            text = {
+                Text(
+                    "Tu cuenta de ${user.role.lowercase()} (${user.correo}) quedó pendiente de aprobación.\n\n" +
+                            "Podrás iniciar sesión cuando un administrador la apruebe."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingUser = null
+                        onNavigateToLogin()
+                    }
+                ) {
+                    Text("Entendido")
+                }
+            }
+        )
     }
 }

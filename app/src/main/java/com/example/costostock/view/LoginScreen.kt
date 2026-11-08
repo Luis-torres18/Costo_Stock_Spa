@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.costostock.AccountStatus
 import com.example.costostock.User
 import com.example.costostock.UserRepository
 @Composable
@@ -119,7 +120,17 @@ fun LoginScreen(
                     val loggedUser = UserRepository.validateLogin(correo, password)
 
                     if (loggedUser != null) {
-                        onLoginSuccess(loggedUser)
+                        val tipoCuenta = loggedUser.role.lowercase()
+                        when (loggedUser.status) {
+                            AccountStatus.APROBADA -> onLoginSuccess(loggedUser)
+
+                            AccountStatus.PENDIENTE -> errorMessage =
+                                "Tu cuenta de $tipoCuenta está pendiente de aprobación. " +
+                                        "Podrás ingresar cuando un administrador la apruebe."
+
+                            AccountStatus.RECHAZADA -> errorMessage =
+                                "Tu solicitud de cuenta de $tipoCuenta fue rechazada por un administrador."
+                        }
                     } else {
                         errorMessage = "Usuario o contraseña incorrectos"
                     }

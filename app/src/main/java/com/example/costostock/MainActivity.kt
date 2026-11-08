@@ -20,7 +20,10 @@ import com.example.costostock.ui.theme.CostoStockTheme
 import com.example.costostock.view.CartScreen
 import com.example.costostock.view.HomeScreen
 import com.example.costostock.view.LoginScreen
+import com.example.costostock.view.ProductDetailScreen
+import com.example.costostock.view.ProductEditScreen
 import com.example.costostock.view.ProductsScreen
+import com.example.costostock.view.ProfileScreen
 import com.example.costostock.view.RegisterScreen
 import com.example.costostock.view.VoucherScreen
 import com.example.costostock.view.VouchersListScreen
@@ -44,15 +47,17 @@ data class ProductOffer(
     val pickupHours: String = "Consultar horario con el local"
 ) {
 
+    val hasOffer: Boolean get() = offerPrice < originalPrice
+
     fun isOfferActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
-        offerPrice < originalPrice && nowMillis < offerEndsAtMillis
+        hasOffer && nowMillis < offerEndsAtMillis
     fun priceAt(nowMillis: Long = System.currentTimeMillis()): Int =
         if (isOfferActive(nowMillis)) offerPrice else originalPrice
 
     val currentPrice: Int get() = priceAt()
 
     fun isVisibleToBuyer(nowMillis: Long = System.currentTimeMillis()): Boolean =
-        stock > 0 && (!HIDE_EXPIRED_OFFERS || nowMillis < offerEndsAtMillis)
+        stock > 0 && (!HIDE_EXPIRED_OFFERS || !hasOffer || nowMillis < offerEndsAtMillis)
 }
 
 data class CartItem(
@@ -183,15 +188,51 @@ fun AppNavigation() {
         cartItems.clear()
     }
 
+    fun logout() {
+        currentUser = null
+        releaseCart()
+        navController.navigate("login") {
+            popUpTo(0)
+        }
+    }
+
+    fun openProduct(product: ProductOffer) {
+        navController.navigate("productDetail/${product.id}") {
+            launchSingleTop = true
+        }
+    }
+
+    /** Guarda un producto editado y actualiza sus datos en el carrito (precio, nombre, etc.). */
+    fun updateProduct(updated: ProductOffer) {
+        val index = productsList.indexOfFirst { it.id == updated.id }
+        if (index >= 0) {
+            productsList[index] = updated
+        }
+        // Bucle por índice: modificar la lista mientras se itera con forEach lanzaría una excepción
+        for (i in cartItems.indices) {
+            val item = cartItems[i]
+            if (item.product.id == updated.id) {
+                cartItems[i] = item.copy(product = updated)
+            }
+        }
+    }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // El detalle y la edición del producto se muestran a pantalla completa (sin la barra inferior)
+    val showBottomBar = currentRoute != null &&
+            currentRoute != "login" &&
+            currentRoute != "register" &&
+            !currentRoute.startsWith("productDetail") &&
+            !currentRoute.startsWith("editProduct")
+
     Scaffold(
         bottomBar = {
-            if (currentRoute != "login" && currentRoute != "register" && currentRoute != null) {
+            if (showBottomBar) {
                 NavigationBar {
                     NavigationBarItem(
-                        selected = currentRoute.startsWith("home"),
+                        selected = currentRoute?.startsWith("home") == true,
                         onClick = {
                             navController.navigate("home/$currentUserRole") {
                                 popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -203,7 +244,7 @@ fun AppNavigation() {
                         label = { Text("Inicio") }
                     )
                     NavigationBarItem(
-                        selected = currentRoute.startsWith("products"),
+                        selected = currentRoute?.startsWith("products") == true,
                         onClick = {
                             // Ahora navegamos a productos pasando el rol actual
                             navController.navigate("products/$currentUserRole") {
@@ -287,17 +328,55 @@ fun AppNavigation() {
                 }
 
                 HomeScreen(
-                    role = userRole,
                     products = productsList,
+                    role = userRole,
+                    user = currentUser,
+                    pendingRequests = if (currentUser?.role == "ADMINISTRADOR") {
+                        UserRepository.pendingRequestsCount()
+                    } else {
+                        0
+                    },
                     onAddToCart = { product -> addToCart(product) },
-                    onNavigateToProducts = { navController.navigate("products/$userRole") },
-                    onNavigateToCart = { navController.navigate("cart") },
-                    onLogout = {
-                        currentUser = null
-                        releaseCart()
-                        navController.navigate("login") {
-                            popUpTo(0)
+                    onOpenProduct = { product -> openProduct(product) },
+                    onOpenProfile = {
+                        navController.navigate("profile") { launchSingleTop = true }
+                    },
+                    onLogout = { logout() }
+                )
+            }
+
+            composable("profile") {
+                ProfileScreen(
+                    user = currentUser,
+                    onBack = { navController.popBackStack() },
+                    onSave = { nombre, telefono ->
+                        val updated = currentUser?.let { user ->
+                            UserRepository.updateProfile(
+                                correo = user.correo,
+                                nombre = nombre,
+                                telefono = telefono
+                            )
                         }
+                        if (updated != null) currentUser = updated
+                        updated != null
+                    },
+                    onLogout = { logout() },
+                    // Solicitudes de cuentas de vendedor (solo se muestran al administrador)
+                    approvalRequests = UserRepository.approvalRequests(),
+                    onApproveRequest = { request -> UserRepository.approveRequest(request.correo) },
+                    onRejectRequest = { request -> UserRepository.rejectRequest(request.correo) }
+                )
+            }
+
+            composable("productDetail/{productId}") { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId")
+                ProductDetailScreen(
+                    product = productsList.firstOrNull { it.id == productId },
+                    cartCount = cartItems.sumOf { it.quantity },
+                    onBack = { navController.popBackStack() },
+                    onAddToCart = { product -> addToCart(product) },
+                    onOpenCart = {
+                        navController.navigate("cart") { launchSingleTop = true }
                     }
                 )
             }
@@ -310,16 +389,27 @@ fun AppNavigation() {
                     products = productsList,
                     onAddToCart = { product -> addToCart(product) },
                     onAddProduct = { newProduct -> productsList.add(0, newProduct) },
-                    onUpdateStock = { product, newStock ->
-                        val index = productsList.indexOfFirst { it.id == product.id }
-                        if (index >= 0) {
-                            productsList[index] = productsList[index]
-                                .copy(stock = newStock.coerceAtLeast(0))
+                    onEditProduct = { product ->
+                        navController.navigate("editProduct/${product.id}") {
+                            launchSingleTop = true
                         }
                     },
                     onDeleteProduct = { productToDelete ->
                         productsList.remove(productToDelete)
                         cartItems.removeAll { it.product.id == productToDelete.id }
+                    },
+                    onOpenProduct = { product -> openProduct(product) }
+                )
+            }
+
+            composable("editProduct/{productId}") { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId")
+                ProductEditScreen(
+                    product = productsList.firstOrNull { it.id == productId },
+                    onBack = { navController.popBackStack() },
+                    onSave = { updated ->
+                        updateProduct(updated)
+                        navController.popBackStack()
                     }
                 )
             }

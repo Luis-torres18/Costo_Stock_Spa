@@ -26,20 +26,21 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.costostock.ProductOffer
 import com.example.costostock.R
-import kotlinx.coroutines.delay
+import com.example.costostock.User
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     products: List<ProductOffer>,
-    onAddToCart: (ProductOffer) -> Unit,
-    onNavigateToCart: () -> Unit,
-    onNavigateToProducts: () -> Unit,
     role: String,
+    user: User?,
+    pendingRequests: Int = 0,
+    onAddToCart: (ProductOffer) -> Unit,
+    onOpenProduct: (ProductOffer) -> Unit,
+    onOpenProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
     val now by rememberNowMillis()
-    // Solo ofertas vigentes y con stock
     val onSaleProducts = products.filter { it.stock > 0 && it.isOfferActive(now) }
 
     Scaffold(
@@ -52,6 +53,15 @@ fun HomeScreen(
                         modifier = Modifier
                             .height(34.dp)
                             .fillMaxWidth(0.65f)
+                    )
+                },
+                actions = {
+                    UserMenuButton(
+                        user = user,
+                        role = role,
+                        pendingRequests = pendingRequests,
+                        onOpenProfile = onOpenProfile,
+                        onLogout = onLogout
                     )
                 }
             )
@@ -74,34 +84,8 @@ fun HomeScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = { onNavigateToProducts() },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            ) {
-                if (role == "CLIENTE") {
-                    Text("Ver Catálogo de Productos")
-                } else {
-                    Text("Gestión de Productos (CRUD)")
-                }
-            }
-
-            Button(
-                onClick = { onNavigateToCart() },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            ) {
-                Text("Ir a la Tienda / Carrito")
-            }
-
-            OutlinedButton(
-                onClick = { onLogout() },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            ) {
-                Text("Cerrar Sesión", color = MaterialTheme.colorScheme.error)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             Row(
                 modifier = Modifier
@@ -145,6 +129,7 @@ fun HomeScreen(
                         HomeOfferCard(
                             offer = offer,
                             now = now,
+                            onClick = { onOpenProduct(offer) },
                             onAddToCart = { onAddToCart(offer) }
                         )
                     }
@@ -158,12 +143,15 @@ fun HomeScreen(
 fun HomeOfferCard(
     offer: ProductOffer,
     now: Long,
+    onClick: () -> Unit,
     onAddToCart: () -> Unit
 ) {
     val timeText = formatRemaining(offer.offerEndsAtMillis - now)
     val discountPct = ((1.0 - (offer.offerPrice.toDouble() / offer.originalPrice)) * 100).toInt()
 
+
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
