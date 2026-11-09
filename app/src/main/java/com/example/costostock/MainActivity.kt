@@ -27,6 +27,7 @@ import com.example.costostock.view.ProfileScreen
 import com.example.costostock.view.RegisterScreen
 import com.example.costostock.view.VoucherScreen
 import com.example.costostock.view.VouchersListScreen
+import java.util.UUID
 
 const val HIDE_EXPIRED_OFFERS = false
 
@@ -85,6 +86,24 @@ data class PurchaseVoucher(
     val buyerPhone: String,
     val paymentStatus: String = "PAGO SIMULADO"
 )
+
+const val MAX_QUESTIONS_PER_PRODUCT = 2
+
+enum class QuestionStatus { PENDIENTE, APROBADA, RECHAZADA }
+
+data class ProductQuestion(
+    val id: String,
+    val productId: String,
+    val askerEmail: String,
+    val askerName: String,
+    val text: String,
+    val createdAtMillis: Long,
+    val status: QuestionStatus = QuestionStatus.PENDIENTE,
+    val answer: String = "",
+    val answeredAtMillis: Long = 0L
+) {
+    val isAnswered: Boolean get() = answer.isNotBlank()
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -157,6 +176,7 @@ fun AppNavigation() {
 
     val cartItems = remember { mutableStateListOf<CartItem>() }
     val vouchers = remember { mutableStateListOf<PurchaseVoucher>() }
+    val questions = remember { mutableStateListOf<ProductQuestion>() }
 
     fun changeStock(productId: String, delta: Int) {
         val index = productsList.indexOfFirst { it.id == productId }
@@ -186,6 +206,57 @@ fun AppNavigation() {
     fun releaseCart() {
         cartItems.forEach { changeStock(it.product.id, it.quantity) }
         cartItems.clear()
+    }
+
+    fun updateQuestion(questionId: String, transform: (ProductQuestion) -> ProductQuestion) {
+        val index = questions.indexOfFirst { it.id == questionId }
+        if (index >= 0) {
+            questions[index] = transform(questions[index])
+        }
+    }
+
+    fun askQuestion(productId: String, text: String): Boolean {
+        val user = currentUser ?: return false
+        if (user.role != "CLIENTE") return false
+        if (productsList.none { it.id == productId }) return false
+
+        val used = questions.count {
+            it.productId == productId &&
+                    it.askerEmail.equals(user.correo, ignoreCase = true) &&
+                    it.status != QuestionStatus.RECHAZADA
+        }
+        if (used >= MAX_QUESTIONS_PER_PRODUCT) return false
+
+        questions.add(
+            0,
+            ProductQuestion(
+                id = "Q-${UUID.randomUUID().toString().take(8).uppercase()}",
+                productId = productId,
+                askerEmail = user.correo,
+                askerName = user.nombre.ifBlank { user.correo },
+                text = text.trim(),
+                createdAtMillis = System.currentTimeMillis()
+            )
+        )
+        return true
+    }
+
+    fun reviewQuestion(questionId: String, status: QuestionStatus) {
+        if (currentUser?.role != "ADMINISTRADOR") return
+        updateQuestion(questionId) { question ->
+            if (question.status == QuestionStatus.PENDIENTE) question.copy(status = status) else question
+        }
+    }
+
+    fun answerQuestion(questionId: String, answer: String) {
+        if (currentUser?.role != "VENDEDOR") return
+        updateQuestion(questionId) { question ->
+            if (question.status == QuestionStatus.APROBADA && !question.isAnswered) {
+                question.copy(answer = answer.trim(), answeredAtMillis = System.currentTimeMillis())
+            } else {
+                question
+            }
+        }
     }
 
     fun logout() {
@@ -373,11 +444,16 @@ fun AppNavigation() {
                 ProductDetailScreen(
                     product = productsList.firstOrNull { it.id == productId },
                     cartCount = cartItems.sumOf { it.quantity },
+                    user = currentUser,
+                    questions = questions.filter { it.productId == productId },
                     onBack = { navController.popBackStack() },
                     onAddToCart = { product -> addToCart(product) },
                     onOpenCart = {
                         navController.navigate("cart") { launchSingleTop = true }
-                    }
+                    },
+                    onAskQuestion = { text -> productId != null && askQuestion(productId, text) },
+                    onReviewQuestion = { question, status -> reviewQuestion(question.id, status) },
+                    onAnswerQuestion = { question, answer -> answerQuestion(question.id, answer) }
                 )
             }
 
@@ -397,6 +473,7 @@ fun AppNavigation() {
                     onDeleteProduct = { productToDelete ->
                         productsList.remove(productToDelete)
                         cartItems.removeAll { it.product.id == productToDelete.id }
+                        questions.removeAll { it.productId == productToDelete.id }
                     },
                     onOpenProduct = { product -> openProduct(product) }
                 )
