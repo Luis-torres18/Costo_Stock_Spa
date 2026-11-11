@@ -43,7 +43,7 @@ fun ProductQuestionsSection(
     val email = user?.correo.orEmpty()
     val isClient = role == "CLIENTE"
     val isAdmin = role == "ADMINISTRADOR"
-    val isSeller = role == "VENDEDOR"
+    val isSeller = role == "ADMINISTRADOR" || role == "VENDEDOR"
 
     fun isOwn(question: ProductQuestion): Boolean =
         email.isNotBlank() && question.askerEmail.equals(email, ignoreCase = true)
@@ -90,13 +90,13 @@ fun ProductQuestionsSection(
 
             if (isAdmin) {
                 Text(
-                    text = "Aprueba o rechaza las preguntas antes de que el vendedor pueda responderlas.",
+                    text = "Aprueba o rechaza las preguntas pendientes y responde las aprobadas.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            if (isSeller) {
+            if (isSeller && !isAdmin) {
                 Text(
                     text = "Puedes responder las preguntas aprobadas por el administrador.",
                     style = MaterialTheme.typography.bodySmall,

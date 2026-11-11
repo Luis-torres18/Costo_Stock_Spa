@@ -249,7 +249,7 @@ fun AppNavigation() {
     }
 
     fun answerQuestion(questionId: String, answer: String) {
-        if (currentUser?.role != "VENDEDOR") return
+        if (currentUser?.role != "VENDEDOR" && currentUser?.role != "ADMINISTRADOR") return
         updateQuestion(questionId) { question ->
             if (question.status == QuestionStatus.APROBADA && !question.isAnswered) {
                 question.copy(answer = answer.trim(), answeredAtMillis = System.currentTimeMillis())
@@ -407,8 +407,18 @@ fun AppNavigation() {
                     } else {
                         0
                     },
+                    pendingQuestions = if (currentUser?.role == "ADMINISTRADOR") {
+                        questions.count { it.status == QuestionStatus.PENDIENTE }
+                    } else {
+                        0
+                    },
                     onAddToCart = { product -> addToCart(product) },
                     onOpenProduct = { product -> openProduct(product) },
+                    onOpenPendingQuestions = {
+                        questions.lastOrNull { it.status == QuestionStatus.PENDIENTE }?.let { pending ->
+                            productsList.firstOrNull { it.id == pending.productId }?.let { openProduct(it) }
+                        }
+                    },
                     onOpenProfile = {
                         navController.navigate("profile") { launchSingleTop = true }
                     },

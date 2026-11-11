@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
@@ -41,7 +42,9 @@ fun UserMenuButton(
     role: String,
     onOpenProfile: () -> Unit,
     onLogout: () -> Unit,
-    pendingRequests: Int = 0
+    pendingRequests: Int = 0,
+    pendingQuestions: Int = 0,
+    onOpenPendingQuestions: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -49,8 +52,9 @@ fun UserMenuButton(
         IconButton(onClick = { expanded = true }) {
             BadgedBox(
                 badge = {
-                    if (pendingRequests > 0) {
-                        Badge { Text(pendingRequests.toString()) }
+                    val totalPending = pendingRequests + pendingQuestions
+                    if (totalPending > 0) {
+                        Badge { Text(totalPending.toString()) }
                     }
                 }
             ) {
@@ -105,6 +109,24 @@ fun UserMenuButton(
                     onOpenProfile()
                 }
             )
+            if (pendingQuestions > 0) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (pendingQuestions == 1) {
+                                "1 pregunta por aprobar"
+                            } else {
+                                "$pendingQuestions preguntas por aprobar"
+                            }
+                        )
+                    },
+                    leadingIcon = { Icon(Icons.Default.QuestionAnswer, contentDescription = null) },
+                    onClick = {
+                        expanded = false
+                        onOpenPendingQuestions()
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Cerrar sesión", color = MaterialTheme.colorScheme.error) },
                 leadingIcon = {
