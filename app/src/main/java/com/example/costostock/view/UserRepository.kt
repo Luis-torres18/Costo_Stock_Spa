@@ -3,6 +3,18 @@ package com.example.costostock
 import androidx.compose.runtime.mutableStateListOf
 enum class AccountStatus { APROBADA, PENDIENTE, RECHAZADA }
 
+data class SellerFicha(
+    val businessRut: String,
+    val legalName: String,
+    val businessActivity: String,
+    val activityStartDate: String,
+    val region: String,
+    val commune: String,
+    val street: String,
+    val municipalPatentNumber: String,
+    val sanitaryResolutionNumber: String
+)
+
 data class User(
     val correo: String,
     val password: String,
@@ -10,7 +22,8 @@ data class User(
     val nombre: String = "",
     val telefono: String = "",
     val status: AccountStatus = AccountStatus.APROBADA,
-    val requestedAtMillis: Long = 0L
+    val requestedAtMillis: Long = 0L,
+    val ficha: SellerFicha? = null
 )
 
 const val DEMO_ADMIN_EMAIL = "administrador@costostock.cl"
@@ -39,7 +52,8 @@ object UserRepository {
         password: String,
         role: String,
         nombre: String,
-        telefono: String
+        telefono: String,
+        ficha: SellerFicha? = null
     ): User? {
         val existingIndex = usersList.indexOfFirst { it.correo.equals(correo.trim(), ignoreCase = true) }
         if (existingIndex >= 0 && usersList[existingIndex].status != AccountStatus.RECHAZADA) return null
@@ -52,7 +66,8 @@ object UserRepository {
             nombre = nombre.trim(),
             telefono = telefono.trim(),
             status = if (needsApproval) AccountStatus.PENDIENTE else AccountStatus.APROBADA,
-            requestedAtMillis = if (needsApproval) System.currentTimeMillis() else 0L
+            requestedAtMillis = if (needsApproval) System.currentTimeMillis() else 0L,
+            ficha = ficha
         )
 
         if (existingIndex >= 0) {
@@ -62,6 +77,9 @@ object UserRepository {
         }
         return newUser
     }
+
+    fun isBusinessRutRegistered(rut: String): Boolean =
+        usersList.any { it.ficha?.businessRut == rut && it.status != AccountStatus.RECHAZADA }
 
     fun validateLogin(correo: String, password: String): User? {
         return usersList.find {
