@@ -35,8 +35,10 @@ fun HomeScreen(
     role: String,
     user: User?,
     pendingRequests: Int = 0,
+    pendingQuestions: Int = 0,
     onAddToCart: (ProductOffer) -> Unit,
     onOpenProduct: (ProductOffer) -> Unit,
+    onOpenPendingQuestions: () -> Unit = {},
     onOpenProfile: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -60,6 +62,8 @@ fun HomeScreen(
                         user = user,
                         role = role,
                         pendingRequests = pendingRequests,
+                        pendingQuestions = pendingQuestions,
+                        onOpenPendingQuestions = onOpenPendingQuestions,
                         onOpenProfile = onOpenProfile,
                         onLogout = onLogout
                     )

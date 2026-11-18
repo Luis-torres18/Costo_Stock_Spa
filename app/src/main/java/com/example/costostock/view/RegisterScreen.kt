@@ -68,6 +68,7 @@ fun RegisterScreen(
     val roles = listOf("CLIENTE", "VENDEDOR", "ADMINISTRADOR")
     var selectedRole by remember { mutableStateOf(roles[0]) }
     var pendingUser by remember { mutableStateOf<User?>(null) }
+    val draft = remember { SellerFichaDraft() }
     val focusManager = LocalFocusManager.current
 
     fun attemptRegistration() {
@@ -90,6 +91,12 @@ fun RegisterScreen(
             password != confirmPassword ->
                 errorMessage = "Las contraseñas no coinciden"
 
+            selectedRole == "VENDEDOR" && validateSellerFicha(draft) != null ->
+                errorMessage = validateSellerFicha(draft)
+
+            selectedRole == "VENDEDOR" && UserRepository.isBusinessRutRegistered(formatRut(draft.businessRut)) ->
+                errorMessage = "Ya existe una solicitud o cuenta con este RUT de negocio"
+
             UserRepository.findByEmail(correo)?.status == AccountStatus.PENDIENTE ->
                 errorMessage = "Ya hay una solicitud pendiente con este correo"
 
@@ -99,7 +106,8 @@ fun RegisterScreen(
                     password = password,
                     role = selectedRole,
                     nombre = username,
-                    telefono = numero
+                    telefono = numero,
+                    ficha = if (selectedRole == "VENDEDOR") draft.toFicha() else null
                 )
 
                 if (newUser != null) {
@@ -273,6 +281,14 @@ fun RegisterScreen(
             isError = errorMessage != null,
             modifier = Modifier.fillMaxWidth()
         )
+
+        if (selectedRole == "VENDEDOR") {
+            Spacer(modifier = Modifier.height(16.dp))
+            SellerFichaForm(
+                draft = draft,
+                onEdit = { errorMessage = null }
+            )
+        }
 
         if (!errorMessage.isNullOrEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))

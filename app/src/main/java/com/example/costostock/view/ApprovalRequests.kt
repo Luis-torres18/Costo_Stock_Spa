@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.costostock.AccountStatus
+import com.example.costostock.SellerFicha
 import com.example.costostock.User
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -184,6 +186,20 @@ private fun RequestCard(
                 text = "Solicitado el ${formatRequestDate(request.requestedAtMillis)}"
             )
 
+            request.ficha?.let { ficha ->
+                var expanded by remember(request.correo) { mutableStateOf(false) }
+                RequestInfoRow(
+                    icon = Icons.Default.Storefront,
+                    text = "${ficha.legalName} · ${ficha.businessRut}"
+                )
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "Ocultar ficha del negocio" else "Ver ficha del negocio")
+                }
+                if (expanded) {
+                    SellerFichaDetails(ficha)
+                }
+            }
+
             if (onApprove != null && onReject != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -249,5 +265,62 @@ private fun RequestInfoRow(icon: ImageVector, text: String) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(text = text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun SellerFichaDetails(ficha: SellerFicha) {
+    val ageLabel = businessAgeLabel(ficha.activityStartDate)
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "Cómo verificarlo en el SII",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Entra a sii.cl, Servicios online, Situación tributaria, Consultar situación tributaria de terceros. " +
+                        "Ingresa el RUT del negocio y comprueba que el inicio de actividades esté vigente y que el giro coincida.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            HorizontalDivider()
+            FichaLine("RUT", ficha.businessRut)
+            FichaLine("Razón social", ficha.legalName)
+            FichaLine("Giro", ficha.businessActivity)
+            FichaLine(
+                "Inicio de actividades",
+                if (ageLabel != null) "${ficha.activityStartDate} ($ageLabel)" else ficha.activityStartDate
+            )
+            FichaLine("Dirección", "${ficha.street}, ${ficha.commune}, ${ficha.region}")
+            FichaLine("Patente", "N° ${ficha.municipalPatentNumber}")
+            FichaLine("Res. sanitaria", ficha.sanitaryResolutionNumber.ifBlank { "No informada" })
+        }
+    }
+}
+
+@Composable
+private fun FichaLine(label: String, value: String) {
+    Row {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(112.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
     }
 }

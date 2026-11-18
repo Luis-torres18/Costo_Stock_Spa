@@ -30,6 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.costostock.ProductOffer
+import com.example.costostock.ProductQuestion
+import com.example.costostock.QuestionStatus
+import com.example.costostock.User
 import kotlinx.coroutines.launch
 
 private val EcoGreen = Color(0xFF2E7D32)
@@ -39,9 +42,14 @@ private val EcoGreen = Color(0xFF2E7D32)
 fun ProductDetailScreen(
     product: ProductOffer?,
     cartCount: Int,
+    user: User?,
+    questions: List<ProductQuestion>,
     onBack: () -> Unit,
     onAddToCart: (ProductOffer) -> Unit,
-    onOpenCart: () -> Unit
+    onOpenCart: () -> Unit,
+    onAskQuestion: (String) -> Boolean,
+    onReviewQuestion: (ProductQuestion, QuestionStatus) -> Unit,
+    onAnswerQuestion: (ProductQuestion, String) -> Unit
 ) {
     val now by rememberNowMillis()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -137,6 +145,11 @@ fun ProductDetailScreen(
             ProductDetailContent(
                 product = product,
                 now = now,
+                user = user,
+                questions = questions,
+                onAskQuestion = onAskQuestion,
+                onReviewQuestion = onReviewQuestion,
+                onAnswerQuestion = onAnswerQuestion,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -147,6 +160,11 @@ fun ProductDetailScreen(
 private fun ProductDetailContent(
     product: ProductOffer,
     now: Long,
+    user: User?,
+    questions: List<ProductQuestion>,
+    onAskQuestion: (String) -> Boolean,
+    onReviewQuestion: (ProductQuestion, QuestionStatus) -> Unit,
+    onAnswerQuestion: (ProductQuestion, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val offerActive = product.isOfferActive(now)
@@ -308,6 +326,14 @@ private fun ProductDetailContent(
                     DetailInfoRow(icon = Icons.Default.Schedule, text = product.pickupHours)
                 }
             }
+
+            ProductQuestionsSection(
+                questions = questions,
+                user = user,
+                onAsk = onAskQuestion,
+                onReview = onReviewQuestion,
+                onAnswer = onAnswerQuestion
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
         }
